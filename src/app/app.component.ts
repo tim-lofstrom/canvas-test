@@ -1,5 +1,6 @@
 import { Component, ElementRef, HostListener, NgZone, ViewChild } from '@angular/core';
 import { Square } from './models/square';
+import { Vector2D } from './utils/Vector2D';
 
 @Component({
   selector: 'app-root',
@@ -49,8 +50,8 @@ export class AppComponent {
   @ViewChild('canvas', { static: true })
   canvas: ElementRef<HTMLCanvasElement>;
   private ctx: CanvasRenderingContext2D;
-  private squares: Square[] = [];
   private mySquare: Square;
+  private candy: Square;
 
   constructor(private ngZone: NgZone) { }
 
@@ -58,36 +59,61 @@ export class AppComponent {
     this.keyboardState = new Map<KEY_CODE, KEY_STATE>();
     this.ctx = this.canvas.nativeElement.getContext('2d');
     this.ctx.canvas.width = window.innerWidth - 15;
-    this.ctx.canvas.height = window.innerHeight - 100;
+    this.ctx.canvas.height = window.innerHeight - 15;
     this.mySquare = new Square(this.ctx);
-    this.mySquare.draw();
+    this.candy = new Square(this.ctx);
+    this.candy.setPosition = new Vector2D().byCoodinates(200, 200);
     this.ngZone.runOutsideAngular(() => this.loop());
   }
 
-  animate(): void {
-    this.ctx.fillStyle = 'red';
-    const square = new Square(this.ctx);
-    this.squares.push(square);
-  }
-
   loop() {
-    const dirVector = this.getDirection();
-    this.mySquare.append(dirVector);
+    this.mySquare.update();
+    this.keyBoardUpdate();
+
+
+    if (this.mySquare.intersect(this.candy.getPosition, this.candy.getSize)) {
+      this.mySquare.appendSize(5);
+      this.candy.setPosition = new Vector2D().byCoodinates(
+        randomIntFromInterval(0, this.ctx.canvas.width), randomIntFromInterval(0, this.ctx.canvas.height));
+    }
+
+
     this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.mySquare.draw();
+    this.candy.draw();
     requestAnimationFrame(this.loop.bind(this));
   }
 
-  getDirection(): [number, number] {
+  keyBoardUpdate() {
 
-    const dir: [number, number] = [0, 0];
+    if (this.keyboardState[KEY_CODE.LEFT_ARROW] === KEY_STATE.DOWN) {
+      this.mySquare.rotate(degsToRads(-3))
+    }
+
+    if (this.keyboardState[KEY_CODE.RIGHT_ARROW] === KEY_STATE.DOWN) {
+      this.mySquare.rotate(degsToRads(3))
+    }
+
+    if (this.keyboardState[KEY_CODE.UP_ARROW] === KEY_STATE.DOWN && this.mySquare.getSpeed < 3) {
+      this.mySquare.accelerate(0.5);
+    }
+
+    if (this.keyboardState[KEY_CODE.UP_ARROW] === KEY_STATE.UP && this.mySquare.getSpeed > 0) {
+      this.mySquare.accelerate(-0.5);
+    }
+
+  }
+
+  getDirection(): Vector2D {
+
+    const dir = new Vector2D().byCoodinates(0, 0);
 
     for (const [key, value] of Object.entries(this.keyboardState)) {
       if (key === KEY_CODE.LEFT_ARROW || key === KEY_CODE.RIGHT_ARROW) {
-        dir[0] += this.keyToDir(key);
+        dir.x += this.keyToDir(key);
       }
       else if (key === KEY_CODE.UP_ARROW || key === KEY_CODE.DOWN_ARROW) {
-        dir[1] += this.keyToDir(key);
+        dir.y += this.keyToDir(key);
       }
     }
 
@@ -95,25 +121,16 @@ export class AppComponent {
   }
 
   keyToDir(key: KEY_CODE): number {
-
     switch (key) {
       case KEY_CODE.LEFT_ARROW:
         return this.keyboardState[key] == KEY_STATE.DOWN ? -1 : 1;
-        break;
       case KEY_CODE.RIGHT_ARROW:
         return this.keyboardState[key] == KEY_STATE.DOWN ? 1 : -1;
-        break;
       case KEY_CODE.UP_ARROW:
         return this.keyboardState[key] == KEY_STATE.DOWN ? -1 : 1;
-        break;
       case KEY_CODE.DOWN_ARROW:
         return this.keyboardState[key] == KEY_STATE.DOWN ? 1 : -1;
-        break;
-
     }
-
-    return 1;
-
   }
 
 }
@@ -128,4 +145,10 @@ export enum KEY_CODE {
 export enum KEY_STATE {
   UP,
   DOWN
+}
+
+const degsToRads = deg => (deg * Math.PI) / 180.0;
+
+function randomIntFromInterval(min, max) { // min and max included 
+  return Math.floor(Math.random() * (max - min + 1) + min)
 }
